@@ -1,0 +1,21 @@
+# Edge node runtime dependencies.
+#
+# torch/torchvision are installed separately in Dockerfile.edge from the
+# CPU-only wheel index (+cpu build). Pinning them here without that index would
+# pull the default CUDA-enabled wheels, which are several GB larger and useless
+# on an edge device with no GPU.
+#
+# opencv-python-headless (not opencv-python): the edge container never opens a
+# display window, and the headless build drops the GUI/X11 dependency chain
+# (libGL, libgtk, ...) that would otherwise have to be installed into the image.
+opencv-python-headless>=4.8.0
+numpy>=1.24
+Pillow>=10.0
+requests>=2.31
+
+# NOT included, deliberately:
+#   scipy       - not imported anywhere under edge/ (only train.py / evaluate.py
+#                 in the original project root use it). ~60MB for no runtime benefit.
+#   matplotlib  - predict.py imports it lazily inside a try/except ImportError,
+#                 only in its --save-density CLI branch, which edge_node.py never
+#                 calls. Absent, that branch degrades to a printed hint.

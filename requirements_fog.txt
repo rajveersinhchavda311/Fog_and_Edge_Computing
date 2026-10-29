@@ -1,0 +1,14 @@
+# Fog server runtime dependencies.
+#
+# No torch here: the fog tier runs the Pressure Cascade Detection Algorithm,
+# which is pure numpy (DTW, cross-correlation, sigmoid reference curve). All
+# neural inference (CSRNet) happens at the edge. Keeping torch out is what makes
+# the fog image small.
+fastapi>=0.110
+uvicorn>=0.27
+numpy>=1.24
+
+# WebSocket transport for the dashboard's /ws endpoint. FastAPI/Starlette needs
+# an explicit websocket implementation installed; without it the /ws route fails
+# at connection time and the dashboard silently falls back to HTTP polling.
+websockets>=12.0

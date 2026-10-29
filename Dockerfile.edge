@@ -1,0 +1,65 @@
+# Edge node image — simulates a constrained edge camera device.
+#
+# Built to stay as small as practical: CPU-only torch, headless OpenCV, no build
+# toolchain left in the final image, and model weights mounted at runtime rather
+# than baked in (see docker-compose.yml).
+
+FROM python:3.11-slim
+
+# Keep Python from writing .pyc files and buffering stdout — unbuffered output
+# matters here because container logs are how the edge node is observed, and a
+# buffered stream would hide telemetry/alert messages until the buffer flushed.
+# PIP_DEFAULT_TIMEOUT/PIP_RETRIES: torch is a large download and the default 15s
+# socket timeout is easily exceeded on a slow link, failing the build with a
+# ReadTimeoutError. Raised so the build is reproducible on ordinary connections.
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_DEFAULT_TIMEOUT=120 \
+    PIP_RETRIES=5
+
+WORKDIR /app
+
+# opencv-python-headless still needs a few shared libraries that python:slim
+# does not ship. libglib2.0-0 is required by cv2 itself; libgomp1 is required by
+# torch's OpenMP threading layer. Installing only these keeps the image far
+# smaller than pulling the full libgl1/libgtk GUI stack that non-headless
+# OpenCV would demand.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        libglib2.0-0 \
+        libgomp1 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install torch/torchvision from the CPU-only wheel index FIRST, as its own
+# layer. Two reasons:
+#   1. --index-url download.pytorch.org/whl/cpu resolves the +cpu builds. The
+#      default PyPI wheels bundle CUDA runtime libraries and are several GB
+#      larger — entirely wasted on an edge device with no GPU.
+#   2. This layer is large and changes rarely, so keeping it separate from the
+#      application requirements means editing requirements_edge.txt does not
+#      force a re-download of torch.
+RUN pip install --no-cache-dir \
+        --index-url https://download.pytorch.org/whl/cpu \
+        torch==2.5.1 torchvision==0.20.1
+
+COPY requirements_edge.txt .
+RUN pip install --no-cache-dir -r requirements_edge.txt
+
+# Application code copied last: it changes on every edit, so keeping it in the
+# final layer means a code change rebuilds only this step, not the dependencies.
+COPY edge/ /app/edge/
+
+WORKDIR /app/edge
+
+# edge_node.py uses flat sibling imports (`import config`,
+# `from predict import CrowdCounter`), so the working directory must be the
+# package directory itself rather than /app.
+
+# CMD (not ENTRYPOINT) so that docker-compose's `command:` fully REPLACES this
+# rather than appending to it. The compose services specify the complete
+# `python edge_node.py --zone ...` line; with an ENTRYPOINT of
+# ["python","edge_node.py"] those would concatenate into
+# `python edge_node.py python edge_node.py --zone ...` and fail.
+CMD ["python", "edge_node.py", "--help"]

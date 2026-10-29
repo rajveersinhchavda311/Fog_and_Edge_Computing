@@ -1,0 +1,28 @@
+# Keep the build context small. Everything here is either mounted at runtime,
+# regenerated, or irrelevant to the images.
+
+# Model weights (~125MB) are bind-mounted via docker-compose, not baked in.
+weights/
+
+# Demo videos are bind-mounted from ./data.
+data/
+
+# Local virtualenv — large, and platform-specific to the host.
+venv/
+
+# Python bytecode / caches
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# Runtime output
+fog/logs/
+*.jsonl
+*.log
+
+# Docs and scratch
+PROGRESS.md
+README.md
+test_scratch/
+*.png

@@ -1,0 +1,39 @@
+Loading model from model_best.pth.tar...
+Dataset: SHANGHAI
+Evaluating on 10 images from data/ShanghaiTech/part_A/test_data...
+
+   #  Image                     GT    Pred     Error    Time
+----------------------------------------------------------------------
+   1  IMG_1.jpg                172     286      +114    1.8s
+   2  IMG_10.jpg               502     427       -75    2.4s
+   3  IMG_100.jpg              389     366       -23    1.0s
+   4  IMG_101.jpg              211     329      +118    1.9s
+   5  IMG_102.jpg              223     229        +6    0.4s
+   6  IMG_103.jpg              431     544      +113    1.8s
+   7  IMG_104.jpg             1175    1198       +23    1.8s
+   8  IMG_105.jpg              265     232       -33    1.7s
+   9  IMG_106.jpg             1232    1362      +130    1.2s
+  10  IMG_107.jpg              289     226       -63    0.9s
+
+======================================================================
+  EVALUATION RESULTS (SHANGHAI, 10 images)
+======================================================================
+  MAE  (Mean Absolute Error):  69.80
+  MSE  (Mean Squared Error):   6836.60
+  RMSE (Root Mean Sq. Error):  82.68
+======================================================================
+
+  Top 5 BEST predictions (lowest error):
+    IMG_102.jpg: GT=223, Pred=229, Error=+6
+    IMG_100.jpg: GT=389, Pred=366, Error=-23
+    IMG_104.jpg: GT=1175, Pred=1198, Error=+23
+    IMG_105.jpg: GT=265, Pred=232, Error=-33
+    IMG_107.jpg: GT=289, Pred=226, Error=-63
+
+  Top 5 WORST predictions (highest error):
+    IMG_106.jpg: GT=1232, Pred=1362, Error=+130
+    IMG_101.jpg: GT=211, Pred=329, Error=+118
+    IMG_1.jpg: GT=172, Pred=286, Error=+114
+    IMG_103.jpg: GT=431, Pred=544, Error=+113
+    IMG_10.jpg: GT=502, Pred=427, Error=-75
+

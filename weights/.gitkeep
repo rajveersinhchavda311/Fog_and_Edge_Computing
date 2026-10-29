@@ -1,0 +1,2 @@
+Place CSRNet checkpoint here (e.g. model_best.pth.tar or model_best.pth).
+See ../README.md for weight sourcing instructions — no weight file ships with this repo.

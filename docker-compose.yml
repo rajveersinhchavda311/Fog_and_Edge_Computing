@@ -1,0 +1,85 @@
+# Full 3-tier system: one fog server + three constrained edge nodes.
+#
+# The edge services are deliberately resource-capped (cpus / mem_limit) to
+# simulate real edge hardware. This is how edge viability is demonstrated
+# without physical devices: if CSRNet inference plus optical flow sustains the
+# 2-second telemetry cadence inside half a CPU core and 512MB, it will run on a
+# comparable single-board computer.
+#
+#   docker compose up --build
+#   dashboard -> http://localhost:8000/
+
+services:
+  fog:
+    build:
+      context: .
+      dockerfile: Dockerfile.fog
+    container_name: crowdshield_fog
+    ports:
+      - "8000:8000"
+    volumes:
+      # Cascade event log (cloud tier) persisted to the host so it survives
+      # container restarts and can be inspected after a demo.
+      - ./fog/logs:/app/fog/logs
+    healthcheck:
+      # Edge nodes tolerate an unreachable fog server, but gating their start on
+      # a real readiness signal avoids a burst of connection warnings on boot.
+      # Uses python rather than curl, which python:slim does not ship.
+      test: ["CMD", "python", "-c",
+             "import urllib.request; urllib.request.urlopen('http://localhost:8000/zones').read()"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+
+  edge_1:
+    build:
+      context: .
+      dockerfile: Dockerfile.edge
+    container_name: crowdshield_edge_1
+    # Simulated edge device constraints.
+    cpus: 0.5
+    mem_limit: 512m
+    command: python edge_node.py --zone zone_1 --source /data/video1.mp4 --fog-url http://fog:8000
+    volumes:
+      - ./data:/data
+      # Weights are mounted read-only rather than COPYed into the image: the
+      # checkpoint is ~125MB, all three edge containers share the one host copy,
+      # and swapping models does not require an image rebuild.
+      - ./weights:/app/weights:ro
+    depends_on:
+      fog:
+        condition: service_healthy
+    restart: unless-stopped
+
+  edge_2:
+    build:
+      context: .
+      dockerfile: Dockerfile.edge
+    container_name: crowdshield_edge_2
+    cpus: 0.5
+    mem_limit: 512m
+    command: python edge_node.py --zone zone_2 --source /data/video2.mp4 --fog-url http://fog:8000
+    volumes:
+      - ./data:/data
+      - ./weights:/app/weights:ro
+    depends_on:
+      fog:
+        condition: service_healthy
+    restart: unless-stopped
+
+  edge_3:
+    build:
+      context: .
+      dockerfile: Dockerfile.edge
+    container_name: crowdshield_edge_3
+    cpus: 0.5
+    mem_limit: 512m
+    command: python edge_node.py --zone zone_3 --source /data/video3.mp4 --fog-url http://fog:8000
+    volumes:
+      - ./data:/data
+      - ./weights:/app/weights:ro
+    depends_on:
+      fog:
+        condition: service_healthy
+    restart: unless-stopped

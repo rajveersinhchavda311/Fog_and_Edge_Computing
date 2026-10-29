@@ -1,0 +1,710 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CrowdShield — Fog Layer</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --panel: #161923;
+    --panel-2: #1c2029;
+    --border: #262b36;
+    --text: #ffffff;
+    --muted: #8b93a7;
+    --green: #10b981;
+    --yellow: #f59e0b;
+    --red: #ef4444;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    padding: 20px;
+    background: var(--bg);
+    color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  .wrap { max-width: 1200px; margin: 0 auto; }
+
+  header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+  }
+  header h1 { font-size: 18px; font-weight: 600; margin: 0; letter-spacing: .2px; }
+  header .sub { color: var(--muted); font-size: 12px; }
+
+  #conn {
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 4px 10px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  #conn.live   { color: var(--green);  border-color: rgba(16,185,129,.4); }
+  #conn.poll   { color: var(--yellow); border-color: rgba(245,158,11,.4); }
+  #conn.down   { color: var(--red);    border-color: rgba(239,68,68,.4); }
+
+  section { margin-bottom: 18px; }
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+  }
+
+  .label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .09em;
+    color: var(--muted);
+    margin-bottom: 10px;
+  }
+
+  /* ---------- Row 1: zone cards ---------- */
+  .zones { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  @media (max-width: 780px) { .zones { grid-template-columns: 1fr; } }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--muted);
+    border-radius: 10px;
+    padding: 16px;
+    transition: border-color .3s;
+  }
+  .card.GREEN  { border-left-color: var(--green); }
+  .card.YELLOW { border-left-color: var(--yellow); }
+  .card.RED    { border-left-color: var(--red); }
+
+  .card-head {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 8px; margin-bottom: 12px;
+  }
+  .card-head h2 { margin: 0; font-size: 14px; font-weight: 600; }
+
+  .badge {
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    padding: 3px 9px;
+    border-radius: 4px;
+    color: #0f1117;
+  }
+  .badge.GREEN  { background: var(--green); }
+  .badge.YELLOW { background: var(--yellow); }
+  .badge.RED    { background: var(--red); color: #fff; animation: pulse 1.1s ease-in-out infinite; }
+
+  @keyframes pulse { 0%,100% { opacity: 1 } 50% { opacity: .45 } }
+
+  .count-row { display: flex; align-items: flex-end; gap: 12px; margin-bottom: 14px; }
+  .count { font-family: var(--mono); font-size: 40px; font-weight: 600; line-height: 1; }
+  .count-unit { color: var(--muted); font-size: 11px; padding-bottom: 4px; }
+
+  .metric { margin-bottom: 12px; }
+  .metric-top {
+    display: flex; justify-content: space-between;
+    font-size: 11px; color: var(--muted); margin-bottom: 5px;
+  }
+  .metric-top b { font-family: var(--mono); color: var(--text); font-weight: 600; }
+
+  .bar { height: 5px; background: var(--panel-2); border-radius: 3px; overflow: hidden; }
+  .bar > i { display: block; height: 100%; width: 0; border-radius: 3px; transition: width .4s ease, background .3s; }
+
+  .flow-row { display: flex; align-items: center; gap: 12px; }
+  .arrow-box {
+    width: 40px; height: 40px; flex: none;
+    border: 1px solid var(--border); border-radius: 50%;
+    display: grid; place-items: center;
+    background: var(--panel-2);
+  }
+  .arrow { transition: transform .4s ease; transform-origin: 50% 50%; }
+  .flow-nums { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+  .flow-nums b { color: var(--text); font-weight: 600; }
+
+  .eta {
+    margin-top: 12px; padding: 9px 11px; border-radius: 6px;
+    background: rgba(239,68,68,.12);
+    border: 1px solid rgba(239,68,68,.45);
+    color: var(--red);
+    font-family: var(--mono); font-size: 12px; font-weight: 700;
+    animation: pulse 1.1s ease-in-out infinite;
+  }
+  .eta small { display: block; font-weight: 400; font-size: 10px; color: var(--muted); margin-top: 3px; }
+
+  /* ---------- Row 2: cascade status ---------- */
+  .cascade-head { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 14px; }
+  .status {
+    font-family: var(--mono); font-size: 17px; font-weight: 700; letter-spacing: .04em;
+    padding: 9px 16px; border-radius: 7px;
+  }
+  .status.safe   { background: rgba(16,185,129,.13); color: var(--green); border: 1px solid rgba(16,185,129,.4); }
+  .status.danger { background: rgba(239,68,68,.13);  color: var(--red);   border: 1px solid rgba(239,68,68,.5);
+                   animation: pulse 1.1s ease-in-out infinite; }
+  .score { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+  .score b { color: var(--text); font-size: 17px; font-weight: 600; }
+
+  .list { display: flex; flex-direction: column; gap: 7px; }
+  .wave, .pre {
+    font-family: var(--mono); font-size: 12px;
+    padding: 9px 12px; border-radius: 6px;
+    background: var(--panel-2); border: 1px solid var(--border);
+  }
+  .wave .from-to { color: var(--red); font-weight: 700; }
+  .wave .meta, .pre .meta { color: var(--muted); }
+  .pre { border-color: rgba(239,68,68,.35); }
+  .pre .z { color: var(--red); font-weight: 700; }
+  .empty { color: var(--muted); font-size: 12px; font-style: italic; }
+
+  /* ---------- Row 3: chart ---------- */
+  .chart-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .legend { display: flex; gap: 14px; font-family: var(--mono); font-size: 11px; flex-wrap: wrap; }
+  .legend span { display: flex; align-items: center; gap: 6px; color: var(--muted); }
+  .swatch { width: 11px; height: 3px; border-radius: 2px; }
+  #chart { width: 100%; height: 230px; display: block; margin-top: 12px; }
+
+  /* ---------- Row 4: debug ---------- */
+  details.debug { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; }
+  details.debug > summary {
+    cursor: pointer; padding: 14px 16px; list-style: none;
+    font-size: 11px; text-transform: uppercase; letter-spacing: .09em; color: var(--muted);
+    display: flex; align-items: center; gap: 8px; user-select: none;
+  }
+  details.debug > summary::-webkit-details-marker { display: none; }
+  details.debug > summary::before { content: "▸"; font-size: 10px; transition: transform .2s; }
+  details.debug[open] > summary::before { transform: rotate(90deg); }
+  details.debug > summary:hover { color: var(--text); }
+  .debug-body { padding: 0 16px 16px; }
+
+  .dbg-section { margin-top: 16px; }
+  .dbg-section:first-child { margin-top: 0; }
+  .dbg-title { font-family: var(--mono); font-size: 11px; color: var(--text); font-weight: 700; margin-bottom: 8px; }
+  .dbg-note { font-size: 11px; color: var(--muted); margin-bottom: 10px; }
+
+  table { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 11px; }
+  th, td { text-align: left; padding: 7px 9px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  th { color: var(--muted); font-weight: 600; text-transform: uppercase; font-size: 10px; letter-spacing: .05em; }
+  td.ok   { color: var(--green); }
+  td.no   { color: var(--red); }
+  .reason { color: var(--muted); white-space: normal; }
+  .scroll-x { overflow-x: auto; }
+
+  .curve-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; }
+  .curve-cell { background: var(--panel-2); border: 1px solid var(--border); border-radius: 7px; padding: 10px; }
+  .curve-cell h4 { margin: 0 0 2px; font-family: var(--mono); font-size: 11px; font-weight: 700; }
+  .curve-cell .cap { font-family: var(--mono); font-size: 10px; color: var(--muted); margin-bottom: 7px; }
+  .curve-cell canvas { width: 100%; height: 76px; display: block; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div>
+      <h1>CrowdShield — Fog Layer</h1>
+      <div class="sub">Pressure Cascade Detection · 3-zone corridor</div>
+    </div>
+    <div id="conn" class="down">connecting…</div>
+  </header>
+
+  <!-- Row 1 -->
+  <section class="zones" id="zones"></section>
+
+  <!-- Row 2 -->
+  <section class="panel">
+    <div class="label">Cascade Status</div>
+    <div class="cascade-head">
+      <div id="status" class="status safe">NO CASCADE</div>
+      <div class="score">cascade score <b id="score">0.0000</b></div>
+    </div>
+    <div class="dbg-title" style="margin-bottom:7px">Confirmed wave pairs</div>
+    <div class="list" id="waves"></div>
+    <div class="dbg-title" style="margin:16px 0 7px">Preemptive alerts</div>
+    <div class="list" id="pre"></div>
+  </section>
+
+  <!-- Row 3 -->
+  <section class="panel">
+    <div class="chart-head">
+      <div class="label" style="margin:0">Density — rolling 60s</div>
+      <div class="legend" id="legend"></div>
+    </div>
+    <canvas id="chart"></canvas>
+  </section>
+
+  <!-- Row 4 -->
+  <section>
+    <details class="debug">
+      <summary>Algorithm inspection — how the detection works</summary>
+      <div class="debug-body">
+
+        <div class="dbg-section">
+          <div class="dbg-title">Component 1 — Temporal pattern matching (DTW)</div>
+          <div class="dbg-note">
+            Each zone's recent density curve is min-max normalized and compared against a
+            reference pre-stampede S-curve using Dynamic Time Warping. Lower distance = closer
+            match. Confidence = 1 − (distance / max distance). A zone is <em>surging</em> only if
+            it passes <em>both</em> the confidence and the absolute-density test — DTW is
+            scale-invariant, so shape alone is not enough.
+          </div>
+          <div class="scroll-x">
+            <table id="dtw-tbl">
+              <thead><tr>
+                <th>Zone</th><th>DTW dist</th><th>Confidence</th>
+                <th>Conf &gt; thr</th><th>Density &gt; thr</th><th>Surging</th>
+              </tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="dbg-section">
+          <div class="dbg-title">Component 2 — Cross-correlation wave detection</div>
+          <div class="dbg-note">
+            Every adjacent pair is correlated across time lags. A wave is confirmed only when the
+            source zone is surging <em>and</em> correlation exceeds threshold <em>and</em> lag is
+            positive (B follows A) <em>and</em> both flow vectors point the same way. Rejected rows
+            show which condition vetoed the wave — this is what separates a real propagating
+            wave from two coincidental spikes.
+          </div>
+          <div class="scroll-x">
+            <table id="pair-tbl">
+              <thead><tr>
+                <th>Pair</th><th>Corr</th><th>Lag</th><th>Flow·dot</th>
+                <th>Src surging</th><th>Corr ok</th><th>Lag ok</th><th>Flow ok</th>
+                <th>Result</th><th>Rejected because</th>
+              </tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="dbg-section">
+          <div class="dbg-title">Reference S-curve vs actual (normalized)</div>
+          <div class="dbg-note">
+            Dashed grey = reference pre-stampede curve. Solid = the zone's normalized density
+            curve actually fed to DTW.
+          </div>
+          <div class="curve-grid" id="curves"></div>
+        </div>
+
+      </div>
+    </details>
+  </section>
+
+</div>
+
+<script>
+"use strict";
+
+const COLORS = { GREEN: "#10b981", YELLOW: "#f59e0b", RED: "#ef4444", MUTED: "#8b93a7" };
+const HISTORY_SECONDS = 60;
+const POLL_MS = 2000;
+
+// Latest server state.
+let zones = [];            // from /zones or ws payload
+let cascade = null;        // from /cascade or ws payload
+let histories = {};        // zone_id -> [{timestamp, density_avg}] for the chart
+let lastUpdate = 0;
+
+// ---------- connection: WebSocket with polling fallback ----------
+
+const connEl = document.getElementById("conn");
+let ws = null, pollTimer = null, wsRetry = null;
+
+function setConn(mode, text) {
+  connEl.className = mode;
+  connEl.textContent = text;
+}
+
+function applyPayload(data) {
+  if (data.zones) zones = data.zones;
+  if (data.cascade) cascade = data.cascade;
+  lastUpdate = Date.now();
+  ingestHistories();
+  render();
+}
+
+// Build chart histories from the zone snapshots the server already sends.
+// The WS payload carries each zone's latest reading, so the chart accumulates
+// client-side rather than re-fetching /history for every zone every tick.
+function ingestHistories() {
+  const cutoff = (Date.now() / 1000) - HISTORY_SECONDS;
+  for (const z of zones) {
+    if (!z.latest) continue;
+    const arr = histories[z.zone_id] || (histories[z.zone_id] = []);
+    const last = arr[arr.length - 1];
+    if (!last || last.timestamp !== z.latest.timestamp) {
+      arr.push({ timestamp: z.latest.timestamp, density_avg: z.latest.density_avg });
+    }
+    while (arr.length && arr[0].timestamp < cutoff) arr.shift();
+  }
+}
+
+// Seed the chart from the server's stored history so it is not blank on load.
+async function seedHistories() {
+  const ids = zones.map(z => z.zone_id);
+  await Promise.all(ids.map(async id => {
+    try {
+      const r = await fetch(`/history/${encodeURIComponent(id)}`);
+      if (!r.ok) return;
+      const d = await r.json();
+      histories[id] = (d.history || []).map(h => ({
+        timestamp: h.timestamp, density_avg: h.density_avg
+      }));
+    } catch (e) { /* chart simply starts empty for this zone */ }
+  }));
+  render();
+}
+
+function connectWS() {
+  const proto = location.protocol === "https:" ? "wss:" : "ws:";
+  try { ws = new WebSocket(`${proto}//${location.host}/ws`); }
+  catch (e) { startPolling(); return; }
+
+  ws.onopen = () => {
+    setConn("live", "● live · websocket");
+    stopPolling();
+    // Keeps the server's receive loop fed; the server pushes on its own timer.
+    ws.addEventListener("message", () => {});
+  };
+
+  ws.onmessage = ev => {
+    try { applyPayload(JSON.parse(ev.data)); }
+    catch (e) { /* ignore a malformed frame rather than tearing down the socket */ }
+  };
+
+  ws.onclose = () => {
+    ws = null;
+    setConn("poll", "● polling · websocket closed");
+    startPolling();
+    // Keep trying to get back to the cheaper push transport.
+    clearTimeout(wsRetry);
+    wsRetry = setTimeout(connectWS, 8000);
+  };
+
+  ws.onerror = () => { try { ws.close(); } catch (e) {} };
+}
+
+async function pollOnce() {
+  try {
+    const [zr, cr] = await Promise.all([fetch("/zones"), fetch("/cascade")]);
+    if (!zr.ok || !cr.ok) throw new Error("bad status");
+    const zd = await zr.json();
+    const cd = await cr.json();
+    applyPayload({ zones: zd.zones, cascade: cd });
+    if (!ws) setConn("poll", "● polling · 2s");
+  } catch (e) {
+    setConn("down", "● disconnected — retrying");
+  }
+}
+
+function startPolling() {
+  if (pollTimer) return;
+  pollOnce();
+  pollTimer = setInterval(pollOnce, POLL_MS);
+}
+function stopPolling() {
+  if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+}
+
+// ---------- Row 1: zone cards ----------
+
+function levelOf(zoneId) {
+  return (cascade && cascade.zone_alerts && cascade.zone_alerts[zoneId]) || "GREEN";
+}
+
+function renderZones() {
+  const host = document.getElementById("zones");
+  if (!zones.length) {
+    host.innerHTML = `<div class="panel empty">Waiting for edge nodes to report…</div>`;
+    return;
+  }
+
+  host.innerHTML = zones.map(z => {
+    const id = z.zone_id;
+    const lvl = levelOf(id);
+    const det = (cascade && cascade.zone_details && cascade.zone_details[id]) || null;
+    const pre = (cascade && cascade.preemptive_alerts && cascade.preemptive_alerts[id]) || null;
+    const L = z.latest;
+
+    const conf = det ? det.surge_confidence : 0;
+    const confPct = Math.round(conf * 100);
+    const count = L ? L.count : 0;
+    const fx = L ? L.flow_x : 0, fy = L ? L.flow_y : 0;
+    const mag = L ? L.flow_magnitude : 0;
+
+    // Screen y grows downward; negate fy so the arrow points the way the crowd moves.
+    const angle = (Math.atan2(-fy, fx) * 180 / Math.PI);
+    const hasFlow = mag > 1e-6;
+    const col = COLORS[lvl];
+
+    return `
+      <div class="card ${lvl}">
+        <div class="card-head">
+          <h2>${escapeHtml(id)}</h2>
+          <span class="badge ${lvl}">${lvl}</span>
+        </div>
+
+        <div class="count-row">
+          <span class="count">${count}</span>
+          <span class="count-unit">people</span>
+        </div>
+
+        <div class="metric">
+          <div class="metric-top"><span>surge confidence</span><b>${confPct}%</b></div>
+          <div class="bar"><i style="width:${confPct}%;background:${col}"></i></div>
+        </div>
+
+        <div class="flow-row">
+          <div class="arrow-box">
+            ${hasFlow ? `
+              <svg class="arrow" width="20" height="20" viewBox="0 0 20 20"
+                   style="transform:rotate(${angle.toFixed(1)}deg)">
+                <line x1="3" y1="10" x2="15" y2="10" stroke="${col}" stroke-width="2"/>
+                <path d="M15 10 L10.5 6.5 L10.5 13.5 Z" fill="${col}"/>
+              </svg>`
+              : `<span style="color:var(--muted);font-size:16px">·</span>`}
+          </div>
+          <div class="flow-nums">
+            flow <b>${fmt(mag, 3)}</b><br>
+            x ${fmt(fx, 3)} · y ${fmt(fy, 3)}
+          </div>
+        </div>
+
+        ${pre ? `
+          <div class="eta">
+            ⚠ SURGE ETA: ${Math.round(pre.eta_seconds)}s
+            <small>from wave ${escapeHtml(pre.triggered_by_wave)}</small>
+          </div>` : ``}
+      </div>`;
+  }).join("");
+}
+
+// ---------- Row 2: cascade panel ----------
+
+function renderCascade() {
+  const detected = !!(cascade && cascade.cascade_detected);
+  const st = document.getElementById("status");
+  st.textContent = detected ? "CASCADE DETECTED" : "NO CASCADE";
+  st.className = "status " + (detected ? "danger" : "safe");
+
+  document.getElementById("score").textContent =
+    cascade ? Number(cascade.cascade_score).toFixed(4) : "0.0000";
+
+  const waves = (cascade && cascade.wave_pairs) || [];
+  document.getElementById("waves").innerHTML = waves.length
+    ? waves.map(w => `
+        <div class="wave">
+          <span class="from-to">${escapeHtml(w.from)} → ${escapeHtml(w.to)}</span>
+          <span class="meta">  (corr: ${fmt(w.correlation, 3)}, lag: ${w.lag_seconds}s)</span>
+        </div>`).join("")
+    : `<div class="empty">No confirmed pressure waves.</div>`;
+
+  const pre = (cascade && cascade.preemptive_alerts) || {};
+  const keys = Object.keys(pre);
+  document.getElementById("pre").innerHTML = keys.length
+    ? keys.map(k => `
+        <div class="pre">
+          <span class="z">${escapeHtml(k)}</span>
+          <span class="meta">: ETA ${Math.round(pre[k].eta_seconds)} seconds
+          (triggered by ${escapeHtml(pre[k].triggered_by_wave)} wave)</span>
+        </div>`).join("")
+    : `<div class="empty">No preemptive alerts.</div>`;
+}
+
+// ---------- Row 3: density chart ----------
+
+function renderLegend() {
+  document.getElementById("legend").innerHTML = zones.map(z => {
+    const c = COLORS[levelOf(z.zone_id)];
+    return `<span><i class="swatch" style="background:${c}"></i>${escapeHtml(z.zone_id)}</span>`;
+  }).join("");
+}
+
+function renderChart() {
+  const cv = document.getElementById("chart");
+  const dpr = window.devicePixelRatio || 1;
+  const cssW = cv.clientWidth || 800, cssH = cv.clientHeight || 230;
+  if (cv.width !== cssW * dpr || cv.height !== cssH * dpr) {
+    cv.width = cssW * dpr; cv.height = cssH * dpr;
+  }
+  const g = cv.getContext("2d");
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.clearRect(0, 0, cssW, cssH);
+
+  const padL = 40, padR = 12, padT = 10, padB = 24;
+  const W = cssW - padL - padR, H = cssH - padT - padB;
+  if (W <= 0 || H <= 0) return;
+
+  const yFor = v => padT + H - Math.max(0, Math.min(1, v)) * H;
+  const xFor = age => padL + (1 - Math.max(0, Math.min(HISTORY_SECONDS, age)) / HISTORY_SECONDS) * W;
+
+  // grid + axes
+  g.strokeStyle = "#262b36"; g.fillStyle = "#8b93a7";
+  g.lineWidth = 1; g.font = "10px ui-monospace, monospace";
+  for (let v = 0; v <= 1.0001; v += 0.25) {
+    const y = yFor(v);
+    g.beginPath(); g.moveTo(padL, y); g.lineTo(padL + W, y); g.stroke();
+    g.textAlign = "right"; g.textBaseline = "middle";
+    g.fillText(v.toFixed(2), padL - 7, y);
+  }
+  g.textAlign = "center"; g.textBaseline = "top";
+  for (let s = 0; s <= HISTORY_SECONDS; s += 15) {
+    const x = xFor(s);
+    g.fillText(s === 0 ? "now" : `-${s}s`, x, padT + H + 7);
+  }
+
+  // series
+  const nowSec = Date.now() / 1000;
+  for (const z of zones) {
+    const pts = histories[z.zone_id] || [];
+    if (pts.length < 2) continue;
+    g.strokeStyle = COLORS[levelOf(z.zone_id)];
+    g.lineWidth = 2; g.lineJoin = "round"; g.lineCap = "round";
+    g.beginPath();
+    let started = false;
+    for (const p of pts) {
+      const age = nowSec - p.timestamp;
+      if (age > HISTORY_SECONDS || age < -2) continue;
+      const x = xFor(age), y = yFor(p.density_avg);
+      started ? g.lineTo(x, y) : (g.moveTo(x, y), started = true);
+    }
+    g.stroke();
+  }
+}
+
+// ---------- Row 4: algorithm inspection ----------
+
+function renderDebug() {
+  const dbg = cascade && cascade.debug;
+  const dtwBody = document.querySelector("#dtw-tbl tbody");
+  const pairBody = document.querySelector("#pair-tbl tbody");
+  const curves = document.getElementById("curves");
+
+  if (!dbg) {
+    dtwBody.innerHTML = `<tr><td colspan="6" class="reason">Waiting for data…</td></tr>`;
+    pairBody.innerHTML = `<tr><td colspan="10" class="reason">Waiting for data…</td></tr>`;
+    curves.innerHTML = `<div class="empty">Waiting for data…</div>`;
+    return;
+  }
+
+  const yn = b => b ? `<td class="ok">yes</td>` : `<td class="no">no</td>`;
+
+  const dtwIds = Object.keys(dbg.dtw || {});
+  dtwBody.innerHTML = dtwIds.length ? dtwIds.map(id => {
+    const d = dbg.dtw[id];
+    const surging = d.passed_confidence && d.passed_density;
+    return `<tr>
+      <td>${escapeHtml(id)}</td>
+      <td>${d.dtw_distance === null ? "—" : fmt(d.dtw_distance, 3)}</td>
+      <td>${fmt(d.surge_confidence, 3)}</td>
+      ${yn(d.passed_confidence)}${yn(d.passed_density)}${yn(surging)}
+    </tr>`;
+  }).join("") : `<tr><td colspan="6" class="reason">No zones with enough data yet.</td></tr>`;
+
+  const pairs = dbg.pairs || [];
+  pairBody.innerHTML = pairs.length ? pairs.map(p => `
+    <tr>
+      <td>${escapeHtml(p.from)} → ${escapeHtml(p.to)}</td>
+      <td>${fmt(p.correlation, 3)}</td>
+      <td>${p.lag_seconds}s</td>
+      <td>${fmt(p.flow_alignment, 3)}</td>
+      ${yn(p.source_surging)}${yn(p.passed_correlation)}${yn(p.passed_lag)}${yn(p.passed_flow)}
+      <td class="${p.confirmed ? "ok" : "no"}">${p.confirmed ? "WAVE" : "rejected"}</td>
+      <td class="reason">${escapeHtml(p.rejected_because || "—")}</td>
+    </tr>`).join("")
+    : `<tr><td colspan="10" class="reason">No adjacent pairs with enough data yet.</td></tr>`;
+
+  const ref = dbg.reference_curve || [];
+  curves.innerHTML = dtwIds.map(id =>
+    `<div class="curve-cell">
+       <h4>${escapeHtml(id)}</h4>
+       <div class="cap">DTW ${dbg.dtw[id].dtw_distance === null ? "—" : fmt(dbg.dtw[id].dtw_distance, 3)}
+            · conf ${fmt(dbg.dtw[id].surge_confidence, 3)}</div>
+       <canvas data-zone="${escapeHtml(id)}"></canvas>
+     </div>`).join("");
+
+  for (const cv of curves.querySelectorAll("canvas")) {
+    drawCurve(cv, ref, dbg.dtw[cv.dataset.zone].normalized_curve,
+              COLORS[levelOf(cv.dataset.zone)]);
+  }
+}
+
+function drawCurve(cv, ref, actual, color) {
+  const dpr = window.devicePixelRatio || 1;
+  const w = cv.clientWidth || 220, h = cv.clientHeight || 76;
+  cv.width = w * dpr; cv.height = h * dpr;
+  const g = cv.getContext("2d");
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.clearRect(0, 0, w, h);
+
+  const pad = 5;
+  const line = (arr, stroke, dashed) => {
+    if (!arr || arr.length < 2) return;
+    g.strokeStyle = stroke; g.lineWidth = dashed ? 1 : 2;
+    g.setLineDash(dashed ? [3, 3] : []);
+    g.beginPath();
+    arr.forEach((v, i) => {
+      const x = pad + (i / (arr.length - 1)) * (w - pad * 2);
+      const y = pad + (1 - Math.max(0, Math.min(1, v))) * (h - pad * 2);
+      i ? g.lineTo(x, y) : g.moveTo(x, y);
+    });
+    g.stroke();
+    g.setLineDash([]);
+  };
+  line(ref, "#8b93a7", true);
+  line(actual, color, false);
+}
+
+// ---------- helpers ----------
+
+function fmt(v, n) {
+  return (v === null || v === undefined || Number.isNaN(v)) ? "—" : Number(v).toFixed(n);
+}
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+function render() {
+  renderZones();
+  renderCascade();
+  renderLegend();
+  renderChart();
+  renderDebug();
+}
+
+// Redraw canvases on resize (they are pixel-sized, not reflowed by CSS alone).
+let resizeT;
+window.addEventListener("resize", () => {
+  clearTimeout(resizeT);
+  resizeT = setTimeout(() => { renderChart(); renderDebug(); }, 120);
+});
+
+// ---------- boot ----------
+
+(async function boot() {
+  render();
+  await pollOnce();      // paint immediately, don't wait for the first WS tick
+  await seedHistories(); // fill the chart from stored server history
+  connectWS();
+  // If the socket never opens, the polling fallback covers it.
+  setTimeout(() => { if (!ws || ws.readyState !== 1) startPolling(); }, 3000);
+})();
+</script>
+</body>
+</html>

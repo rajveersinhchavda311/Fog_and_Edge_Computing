@@ -1,0 +1,11 @@
+# Dependencies for evaluate.py / train.py in this directory only.
+#
+# Kept separate from requirements_edge.txt on purpose: the edge runtime
+# (edge_node.py) never reads .mat annotation files or trains anything, so
+# scipy has no reason to be part of that image. This is an offline/training
+# concern, not a runtime one.
+torch>=2.0.0
+torchvision>=0.15.0
+numpy
+scipy
+Pillow

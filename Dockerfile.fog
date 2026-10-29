@@ -1,0 +1,42 @@
+# Fog server image — tier 2 of the 3-tier architecture.
+#
+# Deliberately much smaller than the edge image: the cascade detection algorithm
+# is pure numpy, so no torch, no OpenCV, and no system GUI libraries are needed.
+
+FROM python:3.11-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+WORKDIR /app
+
+COPY requirements_fog.txt .
+RUN pip install --no-cache-dir -r requirements_fog.txt
+
+# fog/ and dashboard/ are siblings under /app because fog_server.py resolves the
+# dashboard as os.path.join(os.path.dirname(__file__), "..", "dashboard",
+# "index.html") — i.e. /app/fog/../dashboard/index.html. Flattening this layout
+# would break GET /.
+COPY fog/ /app/fog/
+COPY dashboard/ /app/dashboard/
+COPY shared/ /app/shared/
+
+# Directory for the cascade event log (the optional cloud tier). docker-compose
+# bind-mounts ./fog/logs here so events survive container restarts and are
+# readable from the host. Created explicitly so the path exists even when run
+# without that mount.
+RUN mkdir -p /app/fog/logs
+
+WORKDIR /app/fog
+
+# Write the cascade JSONL into the mounted logs directory rather than the
+# container's ephemeral filesystem. config.py reads this at import time.
+ENV CASCADE_LOG_PATH=/app/fog/logs/cascade_events.jsonl
+
+EXPOSE 8000
+
+# fog_server.py uses flat sibling imports (`import config`,
+# `from zone_manager import ZoneManager`), so /app/fog must be the working dir.
+CMD ["python", "fog_server.py"]

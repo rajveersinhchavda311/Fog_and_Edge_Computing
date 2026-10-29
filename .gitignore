@@ -1,0 +1,25 @@
+# Virtual environment
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# Datasets and videos (large, not source — see README for how to get them)
+data/MallDataset/
+data/ShanghaiTech/
+data/mall_test/
+data/real_crowd_test/
+data/*.mp4
+
+# Model weights (~130MB, exceeds GitHub's file size limit — see README)
+weights/*.pth
+
+# Runtime output / logs
+fog/logs/
+*.log
+*.jsonl
+
+# OS/editor cruft
+.DS_Store
+Thumbs.db
